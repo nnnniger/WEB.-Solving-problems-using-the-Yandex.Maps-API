@@ -36,10 +36,11 @@ class Example(QMainWindow):
     def initUI(self):
         self.SCREEN_SIZE = [600, 520]
         self.coords = "39.847061,57.576481"
+        self.pt = ''
         self.scale = 1
         self.cur_type_map = 'map'
         self.setGeometry(100, 100, *self.SCREEN_SIZE)
-        self.setWindowTitle('Задание 5')
+        self.setWindowTitle('Задание 6')
         self.get_image(self.coords, self.scale)
 
         self.combobox = Combo(self)
@@ -92,8 +93,8 @@ class Example(QMainWindow):
             self.scale = 8
         elif self.scale > 12:
             self.scale = 12
-
-        self.get_image(coords, self.scale, pt='pm2lbm')
+        self.pt = f'{coords},pm2lbm'
+        self.get_image(coords, self.scale)
         self.coords = coords
         self.image.setPixmap(QPixmap(self.map_file))
 
@@ -103,7 +104,7 @@ class Example(QMainWindow):
         self.get_image(self.coords, self.scale)
         self.image.setPixmap(QPixmap(self.map_file))
 
-    def get_image(self, coords, scale, pt=''):
+    def get_image(self, coords, scale):
         coords = get_coords(scale, coords)
 
         search_params = {
@@ -111,8 +112,8 @@ class Example(QMainWindow):
             'z': scale,
             'l': self.cur_type_map
         }
-        if pt != '':
-            search_params['pt'] = f'{coords},pm2dgl'
+        if self.pt != '':
+            search_params['pt'] = self.pt
 
         link = 'http://static-maps.yandex.ru/1.x/'
 
