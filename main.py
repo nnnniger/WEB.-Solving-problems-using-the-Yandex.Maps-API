@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 
@@ -34,13 +35,15 @@ class Example(QMainWindow):
         self.initUI()
 
     def initUI(self):
-        self.SCREEN_SIZE = [600, 520]
         self.coords = "39.847061,57.576481"
+        self.SCREEN_SIZE = [600, 530]
+        self.image_x, self.image_y = 600, 450
         self.pt = ''
         self.scale = 1
         self.cur_type_map = 'map'
         self.setGeometry(100, 100, *self.SCREEN_SIZE)
-        self.setWindowTitle('Задание 10')
+        self.setFixedSize(*self.SCREEN_SIZE)
+        self.setWindowTitle('Задание 11')
         self.get_image(self.coords, self.scale)
 
         self.combobox = Combo(self)
@@ -72,20 +75,14 @@ class Example(QMainWindow):
         self.btn_addresses.move(500, 465)
         self.btn_addresses.resize(90, 25)
         self.btn_addresses.clicked.connect(self.btn_addresses_clicked)
+
+        self.response = self.get_response('39.847061,57.576481')
+
         # Изображение
         self.pixmap = QPixmap('map.png')
         self.image = QLabel(self)
-        self.image.resize(600, 450)
+        self.image.resize(self.image_x, self.image_y)
         self.image.setPixmap(self.pixmap)
-
-        seach_params = {
-            'geocode': 'Ярославль',
-            'apikey': '40d1649f-0493-4b70-98ba-98533de7710b',
-            'format': 'json'
-        }
-
-        link = 'https://geocode-maps.yandex.ru/1.x/'
-        self.response = requests.get(link, seach_params)
 
         self.box_adresses = QCheckBox('почт. индекс', self)
         self.box_adresses.move(10, 460)
@@ -93,39 +90,43 @@ class Example(QMainWindow):
 
         self.is_postal_code = False
 
-    def postal_code(self):
-        self.is_postal_code = self.box_adresses.isChecked()
-        data = self.response.json()
-        try:
-            coords = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
-                'GeocoderMetaData']['text']
-        except Exception:
-            return
-        if self.is_postal_code:
-            try:
-                info = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
-                    'GeocoderMetaData']['Address']['postal_code']
-                coords += f", {info}"
-            except Exception:  # на случай если что-то произойдет с поиском
-                return
-        self.search_lineedit.setText(coords)
-
-    def btn_lineedit_click(self):
-        if not self.search_lineedit.text():
-            return
-
+    def get_response(self, geocode):
         seach_params = {
-            'geocode': self.search_lineedit.text(),
+            'geocode': geocode,
             'apikey': '40d1649f-0493-4b70-98ba-98533de7710b',
             'format': 'json'
         }
 
         link = 'https://geocode-maps.yandex.ru/1.x/'
-        response = requests.get(link, seach_params)
-        self.response = response
-        check_response(response)
+        return requests.get(link, seach_params)
 
-        data = response.json()
+    def postal_code(self):
+        self.is_postal_code = self.box_adresses.isChecked()
+        data = self.response.json()
+
+        try:
+            coords = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
+                'GeocoderMetaData']['text']
+            self.search_lineedit.setText(coords)
+        except Exception:  # на случай если что-то произойдет с поиском
+            return
+
+        if self.is_postal_code:
+            try:
+                info = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
+                    'GeocoderMetaData']['Address']['postal_code']
+                self.search_lineedit.setText(f'{coords}, {info}')
+            except Exception:  # если нет почтового индекса
+                return
+
+    def btn_lineedit_click(self):
+        if not self.search_lineedit.text():
+            return
+
+        self.response = self.get_response(self.search_lineedit.text())
+        check_response(self.response)
+        data = self.response.json()
+
         try:
             coords = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos'].split()
         except Exception:  # на случай если что-то произойдет с поиском
@@ -136,16 +137,18 @@ class Example(QMainWindow):
             self.scale = 8
         elif self.scale > 12:
             self.scale = 12
+
         self.pt = f'{coords},pm2lbm'
         self.get_image(coords, self.scale)
-        self.coords = coords
         self.image.setPixmap(QPixmap(self.map_file))
+        self.coords = coords
 
     def btn_addresses_clicked(self):
         data = self.response.json()
         try:
             coords = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
                 'GeocoderMetaData']['text']
+            self.search_lineedit.setText(coords)
             if self.is_postal_code:
                 info = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
                     'GeocoderMetaData']['Address']['postal_code']
@@ -196,7 +199,7 @@ class Example(QMainWindow):
             cords = self.coords.split(',')
             step = 360 / pow(2, self.scale)
             cords[0] = str(float(cords[0]) - abs(step))
-            if abs(float(cords[0])) >= 180:
+            if abs(float(cords[0])) >= 177:
                 return
             self.coords = ','.join(cords)
 
@@ -204,7 +207,7 @@ class Example(QMainWindow):
             cords = self.coords.split(',')
             step = 360 / pow(2, self.scale)
             cords[0] = str(float(cords[0]) + abs(step))
-            if abs(float(cords[0])) >= 180:
+            if abs(float(cords[0])) >= 177:
                 return
             self.coords = ','.join(cords)
 
@@ -228,6 +231,39 @@ class Example(QMainWindow):
 
         self.get_image(self.coords, self.scale)
         self.image.setPixmap(QPixmap('map.png'))
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.statusBar().clearMessage()
+            x = event.pos().x()
+            y = event.pos().y()
+            if not (0 <= x <= self.image_x and 0 <= y <= self.image_y):
+                return
+            if self.scale < 8:
+                self.statusBar().showMessage(
+                    f'Использование меток при помощи мыши допустимо только при мастштабе от 8, '
+                    f'текущий масштаб: {self.scale}')
+                return
+            coord_to_geo_x, coord_to_geo_y = 0.0000428, 0.0000428
+            coords = self.coords.split(',')
+            dy = self.image_y // 2 - y
+            dx = x - self.image_x // 2
+
+            lx = float(coords[0]) + dx * coord_to_geo_x * 2 ** (15 - self.scale)
+            ly = float(coords[1]) + dy * coord_to_geo_y * math.cos(math.radians(float(coords[1]))) * 2 ** (
+                    15 - self.scale)
+            if lx > 180:
+                lx -= 360
+            elif lx < -180:
+                lx += 360
+
+            self.pt = f"{lx},{ly},pm2lbm"
+            self.get_image(self.coords, self.scale)
+            self.image.setPixmap(QPixmap(self.map_file))
+
+            self.response = self.get_response(f'{lx},{ly}')
+            check_response(self.response)
+            self.search_lineedit.setText('')
 
     def closeEvent(self, event):
         """При закрытии формы подчищаем за собой"""
