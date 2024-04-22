@@ -3,7 +3,7 @@ import sys
 
 import requests
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QComboBox, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QComboBox, QPushButton
 from PyQt5.QtCore import Qt
 
 
@@ -39,18 +39,28 @@ class Example(QMainWindow):
         self.scale = 1
         self.cur_type_map = 'map'
         self.setGeometry(100, 100, *self.SCREEN_SIZE)
-        self.setWindowTitle('Задание 4')
+        self.setWindowTitle('Задание 5')
         self.get_image(self.coords, self.scale)
 
         self.combobox = Combo(self)
-        self.combobox.move(240, 465)
-        self.combobox.resize(110, 20)
+        self.combobox.move(110, 465)
+        self.combobox.resize(150, 20)
         self.combobox.addItems(('карта', 'спутник', 'гибрид'))
 
-        self.btn = QPushButton('Сменить тип карты', self)
-        self.btn.move(240, 485)
-        self.btn.resize(110, 30)
-        self.btn.clicked.connect(self.btn_click)
+        self.btn_combobox = QPushButton('Сменить тип карты', self)
+        self.btn_combobox.move(110, 485)
+        self.btn_combobox.resize(150, 30)
+        self.btn_combobox.clicked.connect(self.btn_combobox_click)
+
+        self.search_lineedit = QLineEdit(self)
+        self.search_lineedit.setPlaceholderText('Введите место поиска здесь')
+        self.search_lineedit.move(300, 465)
+        self.search_lineedit.resize(190, 25)
+
+        self.btn_lineedit = QPushButton('Начать поиск', self)
+        self.btn_lineedit.move(300, 490)
+        self.btn_lineedit.resize(190, 25)
+        self.btn_lineedit.clicked.connect(self.btn_lineedit_click)
 
         # Изображение
         self.pixmap = QPixmap('map.png')
@@ -58,13 +68,42 @@ class Example(QMainWindow):
         self.image.resize(600, 450)
         self.image.setPixmap(self.pixmap)
 
-    def btn_click(self):
+    def btn_lineedit_click(self):
+        if not self.search_lineedit.text():
+            return
+
+        seach_params = {
+            'geocode': self.search_lineedit.text(),
+            'apikey': '40d1649f-0493-4b70-98ba-98533de7710b',
+            'format': 'json'
+        }
+        link = 'https://geocode-maps.yandex.ru/1.x/'
+        response = requests.get(link, seach_params)
+        check_response(response)
+
+        data = response.json()
+        try:
+            coords = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['Point']['pos'].split()
+        except Exception:  # на случай если что-то произойдет с поиском
+            return
+        coords = ','.join(coords)
+
+        if self.scale < 8:
+            self.scale = 8
+        elif self.scale > 12:
+            self.scale = 12
+
+        self.get_image(coords, self.scale, pt='pm2lbm')
+        self.coords = coords
+        self.image.setPixmap(QPixmap(self.map_file))
+
+    def btn_combobox_click(self):
         translate = {'карта': 'map', 'спутник': 'sat', 'гибрид': 'sat,skl'}
         self.cur_type_map = translate[self.combobox.currentText()]
         self.get_image(self.coords, self.scale)
         self.image.setPixmap(QPixmap(self.map_file))
 
-    def get_image(self, coords, scale):
+    def get_image(self, coords, scale, pt=''):
         coords = get_coords(scale, coords)
 
         search_params = {
@@ -72,6 +111,9 @@ class Example(QMainWindow):
             'z': scale,
             'l': self.cur_type_map
         }
+        if pt != '':
+            search_params['pt'] = f'{coords},pm2dgl'
+
         link = 'http://static-maps.yandex.ru/1.x/'
 
         response = requests.get(link, search_params)
@@ -88,7 +130,7 @@ class Example(QMainWindow):
         elif event.key() == Qt.Key_PageDown and self.scale > 0:
             self.scale -= 1
 
-        if event.key() == Qt.Key_Left:
+        elif event.key() == Qt.Key_Left:
             cords = self.coords.split(',')
             step = 360 / pow(2, self.scale)
             cords[0] = str(float(cords[0]) - abs(step))
@@ -119,6 +161,8 @@ class Example(QMainWindow):
             if abs(float(cords[1])) >= 90:
                 return
             self.coords = ','.join(cords)
+        else:
+            return
 
         self.get_image(self.coords, self.scale)
         self.image.setPixmap(QPixmap('map.png'))
