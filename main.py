@@ -3,7 +3,7 @@ import sys
 
 import requests
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QComboBox, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QComboBox, QPushButton, QCheckBox
 from PyQt5.QtCore import Qt
 
 
@@ -40,7 +40,7 @@ class Example(QMainWindow):
         self.scale = 1
         self.cur_type_map = 'map'
         self.setGeometry(100, 100, *self.SCREEN_SIZE)
-        self.setWindowTitle('Задание 8')
+        self.setWindowTitle('Задание 9')
         self.get_image(self.coords, self.scale)
 
         self.combobox = Combo(self)
@@ -87,6 +87,15 @@ class Example(QMainWindow):
         link = 'https://geocode-maps.yandex.ru/1.x/'
         self.response = requests.get(link, seach_params)
 
+        self.box_adresses = QCheckBox('почт. индекс', self)
+        self.box_adresses.move(10, 460)
+        self.box_adresses.clicked.connect(self.postal_code)
+
+        self.is_postal_code = False
+
+    def postal_code(self):
+        self.is_postal_code = self.box_adresses.isChecked()
+
     def btn_lineedit_click(self):
         if not self.seach_lineedit.text():
             return
@@ -123,6 +132,10 @@ class Example(QMainWindow):
         try:
             coords = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
                 'GeocoderMetaData']['text']
+            if self.is_postal_code:
+                info = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
+                    'GeocoderMetaData']['Address']['postal_code']
+                coords += f", {info}"
             self.seach_lineedit.setText(coords)
         except Exception:  # на случай если что-то произойдет с поиском
             return
