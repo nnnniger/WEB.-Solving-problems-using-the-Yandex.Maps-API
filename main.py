@@ -40,7 +40,7 @@ class Example(QMainWindow):
         self.scale = 1
         self.cur_type_map = 'map'
         self.setGeometry(100, 100, *self.SCREEN_SIZE)
-        self.setWindowTitle('Задание 9')
+        self.setWindowTitle('Задание 10')
         self.get_image(self.coords, self.scale)
 
         self.combobox = Combo(self)
@@ -53,10 +53,10 @@ class Example(QMainWindow):
         self.btn_combobox.resize(150, 30)
         self.btn_combobox.clicked.connect(self.btn_combobox_click)
 
-        self.seach_lineedit = QLineEdit(self)
-        self.seach_lineedit.setPlaceholderText('Введите место поиска здесь')
-        self.seach_lineedit.move(300, 465)
-        self.seach_lineedit.resize(190, 25)
+        self.search_lineedit = QLineEdit(self)
+        self.search_lineedit.setPlaceholderText('Введите место поиска здесь')
+        self.search_lineedit.move(300, 465)
+        self.search_lineedit.resize(190, 25)
 
         self.btn_lineedit = QPushButton('Начать поиск', self)
         self.btn_lineedit.move(300, 490)
@@ -95,13 +95,27 @@ class Example(QMainWindow):
 
     def postal_code(self):
         self.is_postal_code = self.box_adresses.isChecked()
+        data = self.response.json()
+        try:
+            coords = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
+                'GeocoderMetaData']['text']
+        except Exception:
+            return
+        if self.is_postal_code:
+            try:
+                info = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
+                    'GeocoderMetaData']['Address']['postal_code']
+                coords += f", {info}"
+            except Exception:  # на случай если что-то произойдет с поиском
+                return
+        self.search_lineedit.setText(coords)
 
     def btn_lineedit_click(self):
-        if not self.seach_lineedit.text():
+        if not self.search_lineedit.text():
             return
 
         seach_params = {
-            'geocode': self.seach_lineedit.text(),
+            'geocode': self.search_lineedit.text(),
             'apikey': '40d1649f-0493-4b70-98ba-98533de7710b',
             'format': 'json'
         }
@@ -136,7 +150,7 @@ class Example(QMainWindow):
                 info = data['response']['GeoObjectCollection']['featureMember'][0]['GeoObject']['metaDataProperty'][
                     'GeocoderMetaData']['Address']['postal_code']
                 coords += f", {info}"
-            self.seach_lineedit.setText(coords)
+            self.search_lineedit.setText(coords)
         except Exception:  # на случай если что-то произойдет с поиском
             return
 
