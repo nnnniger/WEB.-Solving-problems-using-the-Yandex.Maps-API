@@ -8,6 +8,22 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QCombo
 from PyQt5.QtCore import Qt
 
 
+def lonlat_distance(a, b):
+    degree_to_meters_factor = 111 * 1000  # 111 километров в метрах
+    a_lon, a_lat = a
+    b_lon, b_lat = b
+
+    radians_lattitude = math.radians((a_lat + b_lat) / 2)
+    lat_lon_factor = math.cos(radians_lattitude)
+
+    dx = abs(a_lon - b_lon) * degree_to_meters_factor * lat_lon_factor
+    dy = abs(a_lat - b_lat) * degree_to_meters_factor
+
+    distance = math.sqrt(dx * dx + dy * dy)
+
+    return round(distance)
+
+
 def get_coords(scale, coords):
     if scale > 21:
         scale = 20
@@ -29,6 +45,19 @@ def check_response(response):
         quit()
 
 
+def make_request_search(geocode, obj):
+    link = 'https://search-maps.yandex.ru/v1/'
+    params = {
+        'lang': 'ru_RU',
+        'apikey': 'dda3ddba-c9ea-4ead-9010-f43fbc15c6e3',
+        'text': obj,
+        'll': geocode,
+        'results': 5
+
+    }
+    return requests.get(link, params=params)
+
+
 class Example(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -36,24 +65,24 @@ class Example(QMainWindow):
 
     def initUI(self):
         self.coords = "39.847061,57.576481"
-        self.SCREEN_SIZE = [600, 530]
         self.image_x, self.image_y = 600, 450
+        self.SCREEN_SIZE = [600, 530]
         self.pt = ''
         self.scale = 1
         self.cur_type_map = 'map'
         self.setGeometry(100, 100, *self.SCREEN_SIZE)
         self.setFixedSize(*self.SCREEN_SIZE)
-        self.setWindowTitle('Задание 11')
+        self.setWindowTitle('Задание 12')
         self.get_image(self.coords, self.scale)
 
         self.combobox = Combo(self)
-        self.combobox.move(110, 465)
-        self.combobox.resize(150, 20)
+        self.combobox.move(170, 465)
+        self.combobox.resize(120, 20)
         self.combobox.addItems(('карта', 'спутник', 'гибрид'))
 
         self.btn_combobox = QPushButton('Сменить тип карты', self)
-        self.btn_combobox.move(110, 485)
-        self.btn_combobox.resize(150, 30)
+        self.btn_combobox.move(170, 485)
+        self.btn_combobox.resize(120, 30)
         self.btn_combobox.clicked.connect(self.btn_combobox_click)
 
         self.search_lineedit = QLineEdit(self)
@@ -76,6 +105,11 @@ class Example(QMainWindow):
         self.btn_addresses.resize(90, 25)
         self.btn_addresses.clicked.connect(self.btn_addresses_clicked)
 
+        self.organization_lineedit = QLineEdit(self)
+        self.organization_lineedit.move(10, 490)
+        self.organization_lineedit.resize(150, 25)
+        self.organization_lineedit.setPlaceholderText('Организация для поиска')
+
         self.response = self.get_response('39.847061,57.576481')
 
         # Изображение
@@ -84,8 +118,9 @@ class Example(QMainWindow):
         self.image.resize(self.image_x, self.image_y)
         self.image.setPixmap(self.pixmap)
 
-        self.box_adresses = QCheckBox('почт. индекс', self)
+        self.box_adresses = QCheckBox('почтовый индекс', self)
         self.box_adresses.move(10, 460)
+        self.box_adresses.resize(130, 30)
         self.box_adresses.clicked.connect(self.postal_code)
 
         self.is_postal_code = False
@@ -190,6 +225,7 @@ class Example(QMainWindow):
             file.write(response.content)
 
     def keyPressEvent(self, event):
+        self.statusBar().clearMessage()
         if event.key() == Qt.Key_PageUp and self.scale < 20:
             self.scale += 1
         elif event.key() == Qt.Key_PageDown and self.scale > 0:
@@ -232,38 +268,92 @@ class Example(QMainWindow):
         self.get_image(self.coords, self.scale)
         self.image.setPixmap(QPixmap('map.png'))
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.statusBar().clearMessage()
-            x = event.pos().x()
-            y = event.pos().y()
-            if not (0 <= x <= self.image_x and 0 <= y <= self.image_y):
-                return
-            if self.scale < 8:
-                self.statusBar().showMessage(
-                    f'Использование меток при помощи мыши допустимо только при мастштабе от 8, '
-                    f'текущий масштаб: {self.scale}')
-                return
-            coord_to_geo_x, coord_to_geo_y = 0.0000428, 0.0000428
-            coords = self.coords.split(',')
-            dy = self.image_y // 2 - y
-            dx = x - self.image_x // 2
+    def left_mouse_click(self, event):
+        x = event.pos().x()
+        y = event.pos().y()
+        if not (0 <= x <= self.image_x and 0 <= y <= self.image_y):
+            return
+        if self.scale < 8:
+            self.statusBar().showMessage(
+                f'Использование меток при помощи мыши допустимо только при мастштабе от 8, '
+                f'текущий масштаб: {self.scale}')
+            return
+        coord_to_geo_x, coord_to_geo_y = 0.0000428, 0.0000428
+        coords = self.coords.split(',')
+        dy = self.image_y // 2 - y
+        dx = x - self.image_x // 2
 
-            lx = float(coords[0]) + dx * coord_to_geo_x * 2 ** (15 - self.scale)
-            ly = float(coords[1]) + dy * coord_to_geo_y * math.cos(math.radians(float(coords[1]))) * 2 ** (
-                    15 - self.scale)
-            if lx > 180:
-                lx -= 360
-            elif lx < -180:
-                lx += 360
+        lx = float(coords[0]) + dx * coord_to_geo_x * 2 ** (15 - self.scale)
+        ly = float(coords[1]) + dy * coord_to_geo_y * math.cos(math.radians(float(coords[1]))) * 2 ** (
+                15 - self.scale)
+        if lx > 180:
+            lx -= 360
+        elif lx < -180:
+            lx += 360
 
-            self.pt = f"{lx},{ly},pm2lbm"
+        self.pt = f"{lx},{ly},pm2lbm"
+        self.get_image(self.coords, self.scale)
+        self.image.setPixmap(QPixmap(self.map_file))
+
+        self.response = self.get_response(f'{lx},{ly}')
+        check_response(self.response)
+        self.search_lineedit.setText('')
+
+    def right_mouse_click(self, event):
+        x = event.pos().x()
+        y = event.pos().y()
+        if not (0 <= x <= self.image_x and 0 <= y <= self.image_y):
+            return
+        if self.scale < 8:
+            self.statusBar().showMessage(
+                f'Поиск организации при помощи мыши допустимо только при мастштабе от 8, '
+                f'текущий масштаб: {self.scale}')
+            return
+        coord_to_geo_x, coord_to_geo_y = 0.0000428, 0.0000428
+        coords_obj = self.coords.split(',')
+        dy = self.image_y // 2 - y
+        dx = x - self.image_x // 2
+
+        lx = float(coords_obj[0]) + dx * coord_to_geo_x * 2 ** (15 - self.scale)
+        ly = float(coords_obj[1]) + dy * coord_to_geo_y * math.cos(math.radians(float(coords_obj[1]))) * 2 ** (
+                15 - self.scale)
+        if lx > 180:
+            lx -= 360
+        elif lx < -180:
+            lx += 360
+        coords_search = f'{lx},{ly}'
+        if not self.organization_lineedit.text():
+            self.statusBar().showMessage('Пустое поле организации')
+            return
+        self.response = make_request_search(coords_search, self.organization_lineedit.text())
+        check_response(self.response)
+
+        data = self.response.json()
+        try:
+            coords_obj = list(map(float, data['features'][0]['geometry']['coordinates']))
+        except Exception:  # если поиск не удался
+            self.statusBar().showMessage('Ничего не найдено')
+            return
+
+        s = lonlat_distance(list(map(float, coords_search.split(','))), coords_obj)
+        if s > 50:
+            self.statusBar().showMessage('в расстоянии 50 метров ничего нет')
+        else:
+            self.coords = ','.join(map(str, coords_obj))
+            self.pt = f'{self.coords},pm2lbm'
             self.get_image(self.coords, self.scale)
             self.image.setPixmap(QPixmap(self.map_file))
 
-            self.response = self.get_response(f'{lx},{ly}')
+            self.response = self.get_response(self.coords)
             check_response(self.response)
             self.search_lineedit.setText('')
+
+    def mousePressEvent(self, event):
+        self.statusBar().clearMessage()
+        if event.button() == Qt.LeftButton:
+            self.left_mouse_click(event)
+        elif event.button() == Qt.RightButton:
+            self.right_mouse_click(event)
 
     def closeEvent(self, event):
         """При закрытии формы подчищаем за собой"""
