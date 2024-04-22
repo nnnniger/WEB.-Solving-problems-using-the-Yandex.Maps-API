@@ -40,7 +40,7 @@ class Example(QMainWindow):
         self.scale = 1
         self.cur_type_map = 'map'
         self.setGeometry(100, 100, *self.SCREEN_SIZE)
-        self.setWindowTitle('Задание 6')
+        self.setWindowTitle('Задание 7')
         self.get_image(self.coords, self.scale)
 
         self.combobox = Combo(self)
@@ -62,6 +62,11 @@ class Example(QMainWindow):
         self.btn_lineedit.move(300, 490)
         self.btn_lineedit.resize(190, 25)
         self.btn_lineedit.clicked.connect(self.btn_lineedit_click)
+
+        self.btn_reset = QPushButton('Сброс метки', self)
+        self.btn_reset.move(500, 490)
+        self.btn_reset.resize(90, 25)
+        self.btn_reset.clicked.connect(self.btn_reset_click)
 
         # Изображение
         self.pixmap = QPixmap('map.png')
@@ -93,9 +98,15 @@ class Example(QMainWindow):
             self.scale = 8
         elif self.scale > 12:
             self.scale = 12
+
         self.pt = f'{coords},pm2lbm'
         self.get_image(coords, self.scale)
         self.coords = coords
+        self.image.setPixmap(QPixmap(self.map_file))
+
+    def btn_reset_click(self):
+        self.pt = ''
+        self.get_image(self.coords, self.scale)
         self.image.setPixmap(QPixmap(self.map_file))
 
     def btn_combobox_click(self):
