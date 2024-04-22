@@ -7,6 +7,27 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel
 from PyQt5.QtCore import Qt
 
 
+def get_coords(scale, coords):
+    if scale > 21:
+        scale = 21
+    elif scale <= 0:
+        scale = 1
+    scale = int(scale)
+
+    if scale == 1 or scale == 0:  # более красивое отображение
+        coords = coords.split(',')
+        coords[-1] = '0'
+        coords = ','.join(coords)
+    return coords
+
+
+def check_response(response):
+    if not response:
+        print("Ошибка выполнения запроса:")
+        print("Http статус:", response.status_code, "(", response.reason, ")")
+        quit()
+
+
 class Example(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -18,7 +39,7 @@ class Example(QMainWindow):
         self.scale = 1
 
         self.setGeometry(100, 100, *self.SCREEN_SIZE)
-        self.setWindowTitle('Задание 2')
+        self.setWindowTitle('Задание 3')
         self.get_image(self.coords, self.scale)
 
         # Изображение
@@ -28,25 +49,17 @@ class Example(QMainWindow):
         self.image.setPixmap(self.pixmap)
 
     def get_image(self, coords, scale):
-        if scale > 21:
-            scale = 21
-        elif scale <= 0:
-            scale = 1
-        scale = int(scale)
+        coords = get_coords(scale, coords)
 
-        if scale == 1 or scale == 0:  # более красивое отображение
-            coords = coords.split(',')
-            coords[-1] = '0'
-            coords = ','.join(coords)
+        search_params = {
+            'll': coords,
+            'z': scale,
+            'l': 'map'
+        }
+        link = 'http://static-maps.yandex.ru/1.x/'
 
-        map_request = f"http://static-maps.yandex.ru/1.x/?ll={coords}&z={scale}&l=map"
-        response = requests.get(map_request)
-
-        if not response:
-            print("Ошибка выполнения запроса:")
-            print(map_request)
-            print("Http статус:", response.status_code, "(", response.reason, ")")
-            quit()
+        response = requests.get(link, search_params)
+        check_response(response)
 
         # Запишем полученное изображение в файл.
         self.map_file = f"map.png"
@@ -58,8 +71,38 @@ class Example(QMainWindow):
             self.scale += 1
         elif event.key() == Qt.Key_PageDown and self.scale > 0:
             self.scale -= 1
-        else:
-            return
+
+        if event.key() == Qt.Key_Left:
+            cords = self.coords.split(',')
+            step = 360 / pow(2, self.scale)
+            cords[0] = str(float(cords[0]) - abs(step))
+            if abs(float(cords[0])) >= 180:
+                return
+            self.coords = ','.join(cords)
+
+        elif event.key() == Qt.Key_Right:
+            cords = self.coords.split(',')
+            step = 360 / pow(2, self.scale)
+            cords[0] = str(float(cords[0]) + abs(step))
+            if abs(float(cords[0])) >= 180:
+                return
+            self.coords = ','.join(cords)
+
+        elif event.key() == Qt.Key_Up:
+            cords = self.coords.split(',')
+            step = 180 / pow(2, self.scale)
+            cords[1] = str(float(cords[1]) + abs(step))
+            if abs(float(cords[1])) >= 90:
+                return
+            self.coords = ','.join(cords)
+
+        elif event.key() == Qt.Key_Down:
+            cords = self.coords.split(',')
+            step = 180 / pow(2, self.scale)
+            cords[1] = str(float(cords[1]) - abs(step))
+            if abs(float(cords[1])) >= 90:
+                return
+            self.coords = ','.join(cords)
 
         self.get_image(self.coords, self.scale)
         self.image.setPixmap(QPixmap('map.png'))
