@@ -3,74 +3,79 @@ import sys
 
 import requests
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel
+from PyQt5.QtCore import Qt
 
-SCREEN_SIZE = [1000, 700]
 
-
-class Example(QWidget):
+class Example(QMainWindow):
     def __init__(self):
         super().__init__()
-        # self.getImage()
         self.initUI()
 
     def initUI(self):
-        self.setGeometry(100, 100, *SCREEN_SIZE)
-        self.setWindowTitle('Отображение карты')
+        self.SCREEN_SIZE = [600, 450]
+        self.coords = "39.847061,57.576481"
+        self.scale = 1
 
-        self.show_map_btn = QPushButton(self)
-        self.show_map_btn.setText('показать карту')
-        self.show_map_btn.setGeometry(30, 300, 120, 120)
+        self.setGeometry(100, 100, *self.SCREEN_SIZE)
+        self.setWindowTitle('Задание 2')
+        self.get_image(self.coords, self.scale)
 
+        # Изображение
+        self.pixmap = QPixmap('map.png')
+        self.image = QLabel(self)
+        self.image.resize(600, 450)
+        self.image.setPixmap(self.pixmap)
 
-        self.spn_text = QLabel(self)
-        self.spn_text.setText('Введите параметры spn через запятую: ')
-        self.spn_text.setGeometry(15, 50, 250, 50)
+    def get_image(self, coords, scale):
+        if scale > 21:
+            scale = 21
+        elif scale <= 0:
+            scale = 1
+        scale = int(scale)
 
-        self.ll_text = QLabel(self)
-        self.ll_text.setText('Введите параметры ll через запятую: ')
-        self.ll_text.setGeometry(15, 150, 250, 50)
+        if scale == 1 or scale == 0:  # более красивое отображение
+            coords = coords.split(',')
+            coords[-1] = '0'
+            coords = ','.join(coords)
 
-        self.spn_inp = QLineEdit(self)
-        self.spn_inp.setGeometry(30, 100, 150, 50)
-
-        self.ll_inp = QLineEdit(self)
-        self.ll_inp.setGeometry(30, 200, 150, 50)
-
-        self.show_map_btn.clicked.connect(self.getImage)
-
-        ## Изображение
-
-
-    def getImage(self):
-        spn, ll = self.spn_inp.text(), self.ll_inp.text()
-        map_request = f"http://static-maps.yandex.ru/1.x/?ll={ll}&spn={spn}&l=map"
+        map_request = f"http://static-maps.yandex.ru/1.x/?ll={coords}&z={scale}&l=map"
         response = requests.get(map_request)
 
         if not response:
             print("Ошибка выполнения запроса:")
             print(map_request)
             print("Http статус:", response.status_code, "(", response.reason, ")")
-            sys.exit(1)
+            quit()
 
         # Запишем полученное изображение в файл.
-        self.map_file = "map.png"
+        self.map_file = f"map.png"
         with open(self.map_file, "wb") as file:
             file.write(response.content)
 
-        self.pixmap = QPixmap(self.map_file)
-        self.image = QLabel(self)
-        self.image.setGeometry(350, 90, 600, 450)
-        self.image.setPixmap(self.pixmap)
-        self.image.show()
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_PageUp and self.scale < 21:
+            self.scale += 1
+        elif event.key() == Qt.Key_PageDown and self.scale > 0:
+            self.scale -= 1
+        else:
+            return
+
+        self.get_image(self.coords, self.scale)
+        self.image.setPixmap(QPixmap('map.png'))
 
     def closeEvent(self, event):
         """При закрытии формы подчищаем за собой"""
-        os.remove(self.map_file)
+        os.remove('map.png')
+
+
+def except_hook(cls, exception, traceback):
+    sys.excepthook(cls, exception, traceback)
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    sys.excepthook = except_hook
     ex = Example()
     ex.show()
     sys.exit(app.exec())
